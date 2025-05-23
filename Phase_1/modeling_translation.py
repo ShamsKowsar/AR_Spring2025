@@ -77,7 +77,6 @@ def move():
             reset_robot_position()
             rospy.sleep(2.0)
 
-            # Set direction
             vel_msg.linear.x = move_speed_x
             vel_msg.linear.y = move_speed_y
             vel_msg.linear.z = 0
@@ -85,7 +84,6 @@ def move():
             vel_msg.angular.y = 0
             vel_msg.angular.z = 0
 
-            # Move robot using your preferred time-distance loop
             t0 = rospy.Time.now().to_sec()
             current_distance = 0
             d = expected_distance
