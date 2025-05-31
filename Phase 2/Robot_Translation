@@ -12,22 +12,19 @@ def main():
     print("Setting up publishers")
     move_pub = Publisher("/motors/wheels", Drive, queue_size=1)
 
-    # Need small delay to setup publishers
     sleep(0.5)
 
     speed = input("what is the spped (mm/sec)?")
     dx = input("what is the distance? 50, 100 or 150 mm?")
     dt = dx/speed    # sec
 
-    for i in range(30):
 
-      print(f"--- Trial {i+1}/30: Moving {dx} mm")
+    print(f"Moving {dx} mm")
 
-      move_pub.publish(speed, speed, 0.0, 0.0)
-      sleep(dt)
-      move_pub.publish(0.0, 0.0, 0.0, 0.0)
+    move_pub.publish(speed, speed, 0.0, 0.0)
+    sleep(dt)
+    move_pub.publish(0.0, 0.0, 0.0, 0.0)
 
-      sleep(20.0)
 
 
 if __name__ == "__main__":
