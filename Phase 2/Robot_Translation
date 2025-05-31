@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+
+from time import sleep
+import rospy
+from rospy import Publisher
+from anki_vector_ros.msg import RobotStatus, Drive
+
+def move_straight(move_pub, speed, duration):
+    """Helper to move and stop the robot."""
+    move_pub.publish(speed, speed, 0.0, 0.0)
+    sleep(duration)
+    move_pub.publish(0.0, 0.0, 0.0, 0.0)
+
+def main():
+    print("Setting up publishers")
+    move_pub = Publisher("/motors/wheels", Drive, queue_size=1)
+    sleep(0.5)  # Allow publisher to initialize
+
+    speed = float(input("What is the speed (mm/sec)? "))
+    dx = float(input("What is the distance? (50, 100, or 150 mm)? "))
+    dt = dx / speed
+
+    for i in range(30):
+        print(f"--- Trial {i+1}/30: Moving {dx} mm")
+        move_straight(move_pub, speed, dt)
+
+        sleep(5)  # Small delay between motions
+
+        print(f"--- Trial {i+1}/30: Moving backward ---")
+        move_straight(move_pub, -speed, dt)
+
+        sleep(1.0)  # Delay between trials
+
+if __name__ == "__main__":
+    rospy.init_node("vector_translation")
+    rospy.wait_for_message("/status", RobotStatus)
+    main()
