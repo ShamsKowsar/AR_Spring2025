@@ -14,8 +14,8 @@ def main():
 
     sleep(0.5)
 
-    speed = input("what is the speed (mm/sec)?")
-    dx = input("what is the distance? 50, 100 or 150 mm?")
+    speed = float(input("what is the speed (mm/sec)?"))
+    dx = float(input("what is the distance? 50, 100 or 150 mm?"))
     dt = dx/speed    # sec
 
 
