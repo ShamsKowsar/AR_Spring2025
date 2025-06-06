@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-df = pd.read_csv('/content/drive/MyDrive/Phase 2.csv')
+df = pd.read_csv('translation.csv')
 
 dx = [50, 100, 150]   # mm
 v = 30    # mm/s
