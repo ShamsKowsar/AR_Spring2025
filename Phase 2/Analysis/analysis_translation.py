@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-df = pd.read_csv('translation.csv')
+df = pd.read_csv('Translation.csv')
 
 dx = [50, 100, 150]   # mm
 v = 30    # mm/s
