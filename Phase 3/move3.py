@@ -13,7 +13,6 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm
 import threading
 
-# --- Map Parsing and Representation (No changes) ---
 def parse_world_file(world_file_path):
     try:
         tree = ET.parse(world_file_path)
@@ -47,7 +46,6 @@ def extract_walls_from_model(root, model_name="vector_world_4"):
         wall_polygons.append(rect)
     return wall_polygons
 
-# --- Particle Filter Implementation (No changes) ---
 class ParticleFilter:
     def __init__(self, num_particles, map_polygons, map_bounds):
         self.num_particles = num_particles
@@ -144,7 +142,6 @@ class ParticleFilter:
         y_coords = [p.position.y for p in self.particles]
         return max(np.var(x_coords), np.var(y_coords))
 
-# --- Main ROS Node ---
 class LocalizationNode:
     def __init__(self):
         rospy.init_node('particle_filter_localizer', anonymous=True)
@@ -272,7 +269,6 @@ class LocalizationNode:
             print(f"  > Angle Error:    {np.degrees(angle_error):.2f}°")
             print("\n" + "="*45 + "\n")
 
-# --- Main Execution Loop (No changes) ---
 if __name__ == '__main__':
     try:
         plt.ion()
