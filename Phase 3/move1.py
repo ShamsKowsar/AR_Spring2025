@@ -21,14 +21,14 @@ class MazeNavigator:
         distance = scan.range
 
         if self.state == "forward":
-            if distance < 0.2:
+            if distance < 0.1:
                 # Obstacle ahead → turn
                 rospy.loginfo("Obstacle detected. Turning...")
                 self.state = "turn"
                 self.turn_start_time = rospy.Time.now()
                 self.turn_duration = rospy.Duration(random.uniform(1.5, 2.5))  # seconds
             else:
-                cmd.linear.x = 0.2  # Move forward
+                cmd.linear.x = 0.05  # Move forward
 
         elif self.state == "turn":
             # Rotate for a short time
