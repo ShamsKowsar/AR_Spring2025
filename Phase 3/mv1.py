@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+import rospy
+from geometry_msgs.msg import Twist
+from sensor_msgs.msg import Range
+import rosgraph_msgs.msg
+import random
+import math
+
+class MazeNavigator:
+    def __init__(self):
+        rospy.init_node('maze_navigator')
+        rospy.wait_for_message('/clock', rosgraph_msgs.msg.Clock)
+
+        self.pub = rospy.Publisher('/vector/cmd_vel', Twist, queue_size=1)
+        rospy.Subscriber('/vector/laser', Range, self.callback)
+
+        self.state = "forward"
+        self.turn_direction = 1
+
+        self.safe_distance = 0.1  # Distance threshold to move forward
+        self.turn_speed = 0.5  # Angular speed in rad/s
+
+    def callback(self, scan):
+        cmd = Twist()
+        distance = scan.range
+
+        if self.state == "forward":
+            if distance < self.safe_distance:
+                rospy.loginfo("Obstacle detected. Initiating 270° turn...")
+                self.state = "turn"
+                self.turn_start_time = rospy.Time.now()
+
+                # Turn duration = angle / angular speed
+                angle_rad = math.radians(270)
+                self.turn_duration = rospy.Duration(angle_rad / self.turn_speed)
+
+                # Choose random direction
+             #   self.turn_direction = random.choice([-1, 1])
+            else:
+                cmd.linear.x = 0.05  # Move forward
+
+        elif self.state == "turn":
+            cmd.angular.z = self.turn_speed * self.turn_direction
+            if rospy.Time.now() - self.turn_start_time > self.turn_duration:
+                rospy.loginfo("Finished 270° turn. Moving forward.")
+                self.state = "forward"
+
+        self.pub.publish(cmd)
+
+    def run(self):
+        rospy.spin()
+
+
+if __name__ == "__main__":
+    navigator = MazeNavigator()
+    navigator.run()
+
