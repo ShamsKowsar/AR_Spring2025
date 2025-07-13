@@ -34,8 +34,6 @@ class MazeNavigator:
                 angle_rad = math.radians(270)
                 self.turn_duration = rospy.Duration(angle_rad / self.turn_speed)
 
-                # Choose random direction
-             #   self.turn_direction = random.choice([-1, 1])
             else:
                 cmd.linear.x = 0.05  # Move forward
 
