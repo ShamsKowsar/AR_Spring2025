@@ -12,6 +12,22 @@ from shapely.affinity import rotate, translate
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 import threading
+# -----  🔧 PATCH 1 : global transform parameters --------------------------
+ROT_ANGLE_DEG =-90           # positive = CCW ; use 90 for a right‑angle turn
+DX, DY        = -0.03914 ,-0.521493  # metres to shift (+x right, +y up)
+
+from shapely.affinity import rotate as shp_rotate, translate as shp_translate
+
+def transform_polygons(polys, angle_deg, dx, dy, origin=(0, 0)):
+    """Return a *new* list of polygons rotated about `origin` then shifted."""
+    return [
+        shp_translate(
+            shp_rotate(poly, angle_deg, origin=origin, use_radians=False),
+            xoff=dx, yoff=dy
+        )
+        for poly in polys
+    ]
+# -------------------------------------------------------------------------
 
 def parse_world_file(world_file_path):
     try:
@@ -156,7 +172,7 @@ class ParticleFilter:
 class LocalizationNode:
     def __init__(self):
         rospy.init_node('particle_filter_localizer', anonymous=True)
-        self.world_file_path = rospy.get_param('~world_file', "/home/kowsar/catkin_ws/src/anki_description/world/sample1.world")
+        self.world_file_path = rospy.get_param('~world_file', "/home/kowsar/catin_ws/src/anki_description/world/sample1.world")
         self.num_particles = rospy.get_param('~num_particles', 1200)
         self.convergence_threshold = rospy.get_param('~convergence_threshold', 0.00001)
         
@@ -171,14 +187,25 @@ class LocalizationNode:
 
 
         root = parse_world_file(self.world_file_path)
-        self.wall_polygons = extract_walls_from_model(root)
-        if not self.wall_polygons:
+        raw_walls = extract_walls_from_model(root)
+        if not raw_walls:
             rospy.logerr("No walls extracted. Shutting down.")
             return
+
+        # -----  🔧 PATCH 2 : apply global rotate & shift -------------------------
+        self.wall_polygons = transform_polygons(
+            raw_walls,
+            angle_deg=ROT_ANGLE_DEG,
+            dx=DX, dy=DY,
+            origin=(0, 0)          # change to e.g. map centre if needed
+        )
+        # ------------------------------------------------------------------------
+
 
         all_x = [x for poly in self.wall_polygons for x in poly.exterior.xy[0]]
         all_y = [y for poly in self.wall_polygons for y in poly.exterior.xy[1]]
         self.map_bounds = (min(all_x), max(all_x), min(all_y), max(all_y))
+
         self.particle_filter = ParticleFilter(self.num_particles, self.wall_polygons, self.map_bounds)
 
         self.cmd_pub = rospy.Publisher('/vector/cmd_vel', Twist, queue_size=1)
