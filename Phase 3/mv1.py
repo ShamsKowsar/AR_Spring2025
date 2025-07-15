@@ -5,7 +5,7 @@ from sensor_msgs.msg import Range
 import rosgraph_msgs.msg
 import random
 import math
-
+DEFINED_CONSTANT=0.493
 class MazeNavigator:
     def __init__(self):
         rospy.init_node('maze_navigator')
@@ -31,7 +31,7 @@ class MazeNavigator:
                 self.turn_start_time = rospy.Time.now()
 
                 # Turn duration = angle / angular speed
-                angle_rad = math.radians(270)
+                angle_rad = math.radians(270/DEFINED_CONSTANT)
                 self.turn_duration = rospy.Duration(angle_rad / self.turn_speed)
 
             else:
