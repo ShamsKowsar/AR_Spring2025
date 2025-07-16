@@ -70,8 +70,10 @@ class ParticleFilter:
         self.particles = self._create_uniform_particles()
         self.weights = [1.0 / self.num_particles] * self.num_particles
         self.motion_noise_x = 0.01
-        self.motion_noise_theta = 0.02
-        self.sensor_noise_std = 0.05
+        self.motion_noise_theta = 0.001
+        self.sensor_noise_std = 0.01
+        self.motion_noise_x_mean=0.000406
+        self.motion_noise_theta_mean=0.0728
 
     def _create_uniform_particles(self):
         particles = []
@@ -96,24 +98,16 @@ class ParticleFilter:
             yaw = 2 * np.arctan2(p.orientation.z, p.orientation.w)
 
             # noisy control
-            v_noisy = v + np.random.normal(0, self.motion_noise_x)
-            w_noisy = w + np.random.normal(0, self.motion_noise_theta)
+            v_noisy = v + np.random.normal(self.motion_noise_x_mean, self.motion_noise_x)
+            w_noisy = w + np.random.normal(self.motion_noise_theta_mean, self.motion_noise_theta)
 
             # --- 90° swap: body-x is +y in world --------------------
-            new_x = p.position.x + v_noisy * np.cos(yaw) * dt
-            new_y = p.position.y + v_noisy * np.sin(yaw) * dt
+            p.position.x += v_noisy * np.sin(yaw) * dt   # cos → sin
+            p.position.y += v_noisy * np.cos(yaw) * dt   # sin → cos
 
             # integrate yaw normally
             yaw = (yaw + w_noisy * dt + np.pi) % (2 * np.pi) - np.pi
-
-            if any(wall.contains(Point(new_x, new_y)) for wall in self.map_polygons):
-                continue
-
-            p.position.x = new_x
-            p.position.y = new_y
-            
             p.orientation.z, p.orientation.w = np.sin(yaw / 2), np.cos(yaw / 2)
-
 
     def update(self, measured_distance):
         weights = []
@@ -182,7 +176,7 @@ class LocalizationNode:
         rospy.init_node('particle_filter_localizer', anonymous=True)
         self.world_file_path = rospy.get_param('~world_file', "/home/kowsar/catin_ws/src/anki_description/world/sample1.world")
         self.num_particles = rospy.get_param('~num_particles', 1200)
-        self.convergence_threshold = rospy.get_param('~convergence_threshold', 0.00001)
+        self.convergence_threshold = rospy.get_param('~convergence_threshold', 0.000000001)
         
         self.actual_pose, self.estimated_pose = None, None
         self.last_twist = Twist()
@@ -239,6 +233,7 @@ class LocalizationNode:
 
         self.particle_filter.predict(self.last_twist.linear.x, self.last_twist.angular.z, dt)
         self.particle_filter.update(scan.range)
+        
         self.particle_filter.resample()
         self.estimated_pose = self.particle_filter.estimate_pose()
         convergence = self.particle_filter.get_convergence()
@@ -328,6 +323,42 @@ class LocalizationNode:
                     quiver.set_alpha(0.0)           # hide until first pose arrives
 
             update_quiver(self.actual_quiver,    self.actual_pose)
+            update_quiver(self.estimated_quiver, self.estimated_pose)
+    def visualize(self):
+        with self.plot_lock:
+            # — 1.  update scatter of particles  —
+            self.particles_plot.set_data(
+                [p.position.x for p in self.particle_filter.particles],
+                [p.position.y for p in self.particle_filter.particles])
+
+            # — 2.  extend and draw the actual & estimated paths  —
+            def append_and_update_path(path_buf, line, pose):
+                if pose:
+                    path_buf.append((pose.position.x, pose.position.y))
+                    xs, ys = zip(*path_buf)
+                    line.set_data(xs, ys)
+
+            append_and_update_path(self.actual_path_xy, self.actual_path_line, self.actual_pose)
+            append_and_update_path(self.estimated_path_xy, self.estimated_path_line, self.estimated_pose)
+
+            # — 3.  update quivers (heading arrows)  —
+            def update_quiver(quiver, pose):
+                if pose:
+                    arrow_len = 0.25
+                    # Convert quaternion to yaw angle (assuming 2D, so only z and w used)
+                    yaw = 2 * np.arctan2(pose.orientation.z, pose.orientation.w)
+                    dx = arrow_len * np.cos(yaw)
+                    dy = arrow_len * np.sin(yaw)
+
+                    quiver.set_offsets([[pose.position.x, pose.position.y]])
+                    quiver.set_UVC(dx, dy)
+                    quiver.set_alpha(0.8)  # show arrow
+                else:
+                    quiver.set_offsets([[np.nan, np.nan]])
+                    quiver.set_UVC(np.nan, np.nan)
+                    quiver.set_alpha(0.0)  # hide arrow
+
+            update_quiver(self.actual_quiver, self.actual_pose)
             update_quiver(self.estimated_quiver, self.estimated_pose)
 
     def stop_robot_and_report(self):
