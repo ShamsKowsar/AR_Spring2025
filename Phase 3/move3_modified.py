@@ -100,12 +100,20 @@ class ParticleFilter:
             w_noisy = w + np.random.normal(0, self.motion_noise_theta)
 
             # --- 90° swap: body-x is +y in world --------------------
-            p.position.x += v_noisy * np.sin(yaw) * dt   # cos → sin
-            p.position.y += v_noisy * np.cos(yaw) * dt   # sin → cos
+            new_x = p.position.x + v_noisy * np.cos(yaw) * dt
+            new_y = p.position.y + v_noisy * np.sin(yaw) * dt
 
             # integrate yaw normally
             yaw = (yaw + w_noisy * dt + np.pi) % (2 * np.pi) - np.pi
+
+            if any(wall.contains(Point(new_x, new_y)) for wall in self.map_polygons):
+                continue
+
+            p.position.x = new_x
+            p.position.y = new_y
+            
             p.orientation.z, p.orientation.w = np.sin(yaw / 2), np.cos(yaw / 2)
+
 
     def update(self, measured_distance):
         weights = []
