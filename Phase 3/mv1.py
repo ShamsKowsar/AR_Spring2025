@@ -18,7 +18,7 @@ class MazeNavigator:
         self.turn_direction = 1
 
         self.safe_distance = 0.1  # Distance threshold to move forward
-        self.turn_speed = 0.5  # Angular speed in rad/s
+        self.turn_speed = math.pi/3  # 60 deg/s
 
     def callback(self, scan):
         cmd = Twist()
@@ -26,21 +26,21 @@ class MazeNavigator:
 
         if self.state == "forward":
             if distance < self.safe_distance:
-                rospy.loginfo("Obstacle detected. Initiating 270° turn...")
+                rospy.loginfo("Obstacle detected. Initiating 90° turn...")
                 self.state = "turn"
                 self.turn_start_time = rospy.Time.now()
 
                 # Turn duration = angle / angular speed
-                angle_rad = math.radians(270/DEFINED_CONSTANT)
+                angle_rad = math.radians(90/DEFINED_CONSTANT)
                 self.turn_duration = rospy.Duration(angle_rad / self.turn_speed)
 
             else:
-                cmd.linear.x = 0.05  # Move forward
+                cmd.linear.x = 0.02  # Move forward
 
         elif self.state == "turn":
             cmd.angular.z = self.turn_speed * self.turn_direction
             if rospy.Time.now() - self.turn_start_time > self.turn_duration:
-                rospy.loginfo("Finished 270° turn. Moving forward.")
+                rospy.loginfo("Finished 90° turn. Moving forward.")
                 self.state = "forward"
 
         self.pub.publish(cmd)
