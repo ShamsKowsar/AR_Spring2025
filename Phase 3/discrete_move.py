@@ -1,4 +1,4 @@
-
+#!/usr/bin/env python3
 import rospy
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Range
@@ -6,7 +6,7 @@ from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
 import math
 
-class StepwiseNavigatorOdom:
+class StepwiseNavigator:
     def __init__(self):
         rospy.init_node('stepwise_navigator_odom')
 
@@ -25,7 +25,7 @@ class StepwiseNavigatorOdom:
         self.obstacle_detected = msg.range < self.min_safe_distance
 
     def odom_callback(self, msg):
-        
+
         orientation_q = msg.pose.pose.orientation
         _, _, yaw = euler_from_quaternion([
             orientation_q.x,
@@ -47,6 +47,7 @@ class StepwiseNavigatorOdom:
         rospy.sleep(0.1)
 
     def normalize_angle(self, angle):
+        """ Normalize angle to [-pi, pi] """
         while angle > math.pi:
             angle -= 2 * math.pi
         while angle < -math.pi:
@@ -54,13 +55,21 @@ class StepwiseNavigatorOdom:
         return angle
 
     def turn_left_90_degrees(self, angular_speed=0.3):
+        """
+        Turns the robot approximately 90 degrees to the left,
+        adjusting the angular speed by a DEFINED_CONSTANT,
+        using odometry feedback.
+        """
         initial_yaw = self.current_yaw
+        DEFINED_CONSTANT = 0.493
+
+    # Target is 90 degrees (π/2 rad) ahead of current yaw
         target_yaw = self.normalize_angle(initial_yaw + math.radians(90))
 
         twist = Twist()
-        twist.angular.z = angular_speed
+        twist.angular.z = angular_speed / DEFINED_CONSTANT
 
-        rospy.loginfo("Turning 90 degrees...")
+        rospy.loginfo(f"Turning 90 degrees with adjusted speed (effective speed: {twist.angular.z:.2f} rad/s)...")
 
         rate = rospy.Rate(20)  
         while not rospy.is_shutdown():
@@ -74,6 +83,7 @@ class StepwiseNavigatorOdom:
 
         self.stop()
         rospy.loginfo("Turn complete.")
+
 
     def run(self):
         rate = rospy.Rate(1)
@@ -89,4 +99,4 @@ class StepwiseNavigatorOdom:
             rate.sleep()
 
 if __name__ == "__main__":
-    StepwiseNavigatorOdom()
+    StepwiseNavigator()
