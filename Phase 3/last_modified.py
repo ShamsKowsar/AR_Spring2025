@@ -69,9 +69,14 @@ class ParticleFilter:
         self.map_bounds = map_bounds
         self.particles = self._create_uniform_particles()
         self.weights = [1.0 / self.num_particles] * self.num_particles
-        self.motion_noise_x = 0
-        self.motion_noise_theta = 0.1
+        self.motion_noise_x_std = 0
+        self.motion_noise_theta_std = 0.1
         self.sensor_noise_std = 0.01
+
+        self.motion_noise_x_mean = 0.0004
+        self.motion_noise_theta_mean = 0.5
+        self.sensor_noise_mean = -0.004
+
 
     def _create_uniform_particles(self):
         particles = []
@@ -96,8 +101,8 @@ class ParticleFilter:
             yaw = 2 * np.arctan2(p.orientation.z, p.orientation.w)
 
             # noisy control
-            v_noisy = v + np.random.normal(0, self.motion_noise_x)
-            w_noisy = w + np.random.normal(0, self.motion_noise_theta)
+            v_noisy = v + np.random.normal(self.motion_noise_x_mean, self.motion_noise_x_std)
+            w_noisy = w + np.random.normal(self.motion_noise_theta_mean, self.motion_noise_theta_std)
 
             # --- 90° swap: body-x is +y in world --------------------
 
@@ -121,7 +126,7 @@ class ParticleFilter:
         for p in self.particles:
             yaw = 2 * np.arctan2(p.orientation.z, p.orientation.w)
             expected_distance = self._get_expected_range(p.position.x, p.position.y, yaw)
-            weight = norm.pdf(measured_distance, loc=expected_distance, scale=self.sensor_noise_std)
+            weight = norm.pdf(measured_distance, loc=expected_distance+self.sensor_noise_mean, scale=self.sensor_noise_std)
             weights.append(weight)
         
         total_weight = sum(weights)
