@@ -2,85 +2,109 @@
 import rospy
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Range
-import rosgraph_msgs.msg
+from nav_msgs.msg import Odometry
+from tf.transformations import euler_from_quaternion
 import math
 
 DEFINED_CONSTANT = 0.493
 
-class MazeNavigator:
+class StepwiseNavigatorOdom:
     def __init__(self):
-        rospy.init_node('maze_navigator')
-        rospy.wait_for_message('/clock', rosgraph_msgs.msg.Clock)
+        rospy.init_node('stepwise_navigator_odom')
 
-        self.pub = rospy.Publisher('/vector/cmd_vel', Twist, queue_size=1)
-        rospy.Subscriber('/vector/laser', Range, self.callback)
+        self.cmd_pub = rospy.Publisher('/vector/cmd_vel', Twist, queue_size=1)
+        rospy.Subscriber('/vector/laser', Range, self.sensor_callback)
+        rospy.Subscriber('/odom', Odometry, self.odom_callback)
 
-        self.state = "forward"
-        self.turn_direction = 1
+        self.obstacle_detected = False
+        self.min_safe_distance = 0.25
+        self.current_yaw = 0.0
 
-        self.safe_distance = 0.01  # Distance threshold to move forward
-        self.turn_speed = math.pi / 3  # 60 deg/s
+        rospy.sleep(1)  # Let subscribers start
+        self.run()
 
-        self.forward_speed = 0.02  # Linear speed forward (m/s)
-        self.forward_duration = rospy.Duration(5.0)  # 5 seconds forward
+    def sensor_callback(self, msg):
+        self.obstacle_detected = msg.range < self.min_safe_distance
 
-        self.forward_start_time = None  # When started moving forward
-        self.turn_start_time = None
-        self.turn_duration = None
+    def odom_callback(self, msg):
+        # Convert quaternion to yaw
+        orientation_q = msg.pose.pose.orientation
+        _, _, yaw = euler_from_quaternion([
+            orientation_q.x,
+            orientation_q.y,
+            orientation_q.z,
+            orientation_q.w
+        ])
+        self.current_yaw = yaw
 
-    def callback(self, scan):
-        cmd = Twist()
-        distance = scan.range
-        current_time = rospy.Time.now()
+    def move_forward(self, speed=0.02, duration=5):
+        """Moves the robot forward for a specified duration."""
+        twist = Twist()
+        twist.linear.x = speed
+        self.cmd_pub.publish(twist)
+        rospy.sleep(duration)
+        self.stop()
 
-        if self.state == "forward":
-            # If we just started moving forward, set the start time
-            if self.forward_start_time is None:
-                self.forward_start_time = current_time
-                rospy.loginfo("Starting forward movement for up to 5 seconds.")
+    def stop(self):
+        """Stops the robot's movement."""
+        self.cmd_pub.publish(Twist())
+        rospy.sleep(0.1)
 
-            # Check if obstacle is closer than safe distance
-            if distance < self.safe_distance:
-                rospy.loginfo("Obstacle detected. Initiating 90° turn...")
-                self.state = "turn"
-                self.turn_start_time = current_time
+    def normalize_angle(self, angle):
+        """Normalizes an angle to the range [-pi, pi]."""
+        while angle > math.pi:
+            angle -= 2 * math.pi
+        while angle < -math.pi:
+            angle += 2 * math.pi
+        return angle
 
-                # Turn duration = angle / angular speed
-                # Correct the angle to 90 degrees in radians (no DEFINED_CONSTANT here)
-                angle_rad = math.radians(90)
-                self.turn_duration = rospy.Duration(angle_rad / self.turn_speed)
+    def turn_left_90_degrees(self, angular_speed=0.3):
+        """
+        Turns the robot approximately 90 degrees to the left,
+        adjusting the angular speed by the DEFINED_CONSTANT,
+        using odometry feedback.
+        """
+        initial_yaw = self.current_yaw
+        
+        # Target yaw is now exactly 90 degrees from the initial yaw,
+        # as the DEFINED_CONSTANT is applied to the speed, not the target angle.
+        target_yaw = self.normalize_angle(initial_yaw + math.radians(90))
 
-                # Stop forward timer
-                self.forward_start_time = None
+        twist = Twist()
+        twist.angular.z = angular_speed / DEFINED_CONSTANT # Positive for left turn
 
-                # Stop forward movement and start turning
-                cmd.angular.z = self.turn_speed * self.turn_direction
+        rospy.loginfo(f"Turning 90 degrees with adjusted speed (current wheel speed: {angular_speed / DEFINED_CONSTANT:.2f} rad/s)...")
 
-            else:
-                # Continue moving forward if time not exceeded
-                elapsed = current_time - self.forward_start_time
-                if elapsed < self.forward_duration:
-                    cmd.linear.x = self.forward_speed
-                else:
-                    rospy.loginfo("Finished 5 seconds forward movement without obstacles.")
-                    # Optionally, you can stop or do something else here
-                    cmd.linear.x = 0.0
-                    # Reset forward_start_time to None to start counting again if needed
-                    self.forward_start_time = None
+        rate = rospy.Rate(20)  # 20 Hz loop rate for smooth turning
+        while not rospy.is_shutdown():
+            # Calculate the error between target and current yaw
+            error = self.normalize_angle(target_yaw - self.current_yaw)
 
-        elif self.state == "turn":
-            cmd.angular.z = self.turn_speed * self.turn_direction/DEFINED_CONSTANT
-            if current_time - self.turn_start_time > self.turn_duration:
-                rospy.loginfo("Finished 90° turn. Moving forward.")
-                self.state = "forward"
-                self.forward_start_time = None  # Reset forward timer for next move
+            # If the error is small enough, the turn is complete
+            if abs(error) < math.radians(2):  # within 2 degrees tolerance
+                break
 
-        self.pub.publish(cmd)
+            # Publish the turning command
+            self.cmd_pub.publish(twist)
+            rate.sleep()
+
+        self.stop() # Stop the robot after the turn
+        rospy.loginfo("Turn complete.")
 
     def run(self):
-        rospy.spin()
+        """Main loop for the navigator."""
+        rate = rospy.Rate(1) # Run the main loop at 1 Hz
+        while not rospy.is_shutdown():
+            self.move_forward(speed=0.02, duration=5) # Move forward for 5 seconds
 
+            if self.obstacle_detected:
+                rospy.loginfo("Obstacle detected. Initiating turn...")
+                self.turn_left_90_degrees() # Perform the adjusted turn
+            else:
+                rospy.loginfo("No obstacle. Continuing forward.")
+
+            rate.sleep() # Wait for the next loop iteration
 
 if __name__ == "__main__":
-    navigator = MazeNavigator()
-    navigator.run()
+    StepwiseNavigatorOdom()
+
