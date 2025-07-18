@@ -72,8 +72,8 @@ class ParticleFilter:
         self.motion_noise_x = 0.001
         self.motion_noise_theta = 0.001
         self.sensor_noise_std = 0.01
-        self.motion_noise_x_mean=0.00000000406
-        self.motion_noise_theta_mean=0.000000000728
+        self.motion_noise_x_mean=0.000406
+        self.motion_noise_theta_mean=0.0728
 
         
         

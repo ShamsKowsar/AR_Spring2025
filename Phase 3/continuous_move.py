@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 import rospy
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Range
@@ -17,8 +17,8 @@ class MazeNavigator:
         self.state = "forward"
         self.turn_direction = 1
 
-        self.safe_distance = 0.1  # Distance threshold to move forward
-        self.turn_speed = math.pi/3  # 60 deg/s
+        self.safe_distance = 0.1  
+        self.turn_speed = math.pi/3  
 
     def callback(self, scan):
         cmd = Twist()
@@ -30,7 +30,7 @@ class MazeNavigator:
                 self.state = "turn"
                 self.turn_start_time = rospy.Time.now()
 
-                # Turn duration = angle / angular speed
+                
                 angle_rad = math.radians(90/DEFINED_CONSTANT)
                 self.turn_duration = rospy.Duration(angle_rad / self.turn_speed)
 
@@ -52,4 +52,3 @@ class MazeNavigator:
 if __name__ == "__main__":
     navigator = MazeNavigator()
     navigator.run()
-

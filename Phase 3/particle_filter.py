@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 import rospy
 from geometry_msgs.msg import Twist, Pose
 from sensor_msgs.msg import Range
@@ -12,14 +12,13 @@ from shapely.affinity import rotate, translate
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 import threading
-# -----  🔧 PATCH 1 : global transform parameters --------------------------
-ROT_ANGLE_DEG = 0          # positive = CCW ; use 90 for a right‑angle turn
-DX, DY        = +0.03914 ,+0.521493  # metres to shift (+x right, +y up)
+
+ROT_ANGLE_DEG = 0          
+DX, DY        = +0.03914 ,+0.521493  
 
 from shapely.affinity import rotate as shp_rotate, translate as shp_translate
 
 def transform_polygons(polys, angle_deg, dx, dy, origin=(0, 0)):
-    """Return a *new* list of polygons rotated about `origin` then shifted."""
     return [
         shp_translate(
             shp_rotate(poly, angle_deg, origin=origin, use_radians=False),
@@ -27,7 +26,7 @@ def transform_polygons(polys, angle_deg, dx, dy, origin=(0, 0)):
         )
         for poly in polys
     ]
-# -------------------------------------------------------------------------
+
 
 def parse_world_file(world_file_path):
     try:
@@ -92,25 +91,21 @@ class ParticleFilter:
         return particles
 
     def predict(self, v, w, dt):
-        """
-        Propagate each particle using unicycle kinematics *with the correct
-        Gazebo-to-world axis mapping* (body x → world +y).
-        """
         for p in self.particles:
-            # current yaw in world frame
+            
             yaw = 2 * np.arctan2(p.orientation.z, p.orientation.w)
 
-            # noisy control
+            
             v_noisy = v + np.random.normal(self.motion_noise_x_mean, self.motion_noise_x_std)
             w_noisy = w + np.random.normal(self.motion_noise_theta_mean, self.motion_noise_theta_std)
 
-            # --- 90° swap: body-x is +y in world --------------------
+            
 
             new_x = p.position.x + v_noisy * np.cos(yaw) * dt
             new_y = p.position.y + v_noisy * np.sin(yaw) * dt
        
 
-            # integrate yaw normally
+            
             yaw = (yaw + w_noisy * dt + np.pi) % (2 * np.pi) - np.pi
 
             if any(wall.contains(Point(new_x, new_y)) for wall in self.map_polygons):
@@ -195,8 +190,8 @@ class LocalizationNode:
         self.last_time = rospy.Time.now()
         self.is_localized = False
         self.plot_lock = threading.Lock()
-        # --- new: buffers that will store the path history ---
-        self.actual_path_xy    = []       # list of (x, y) tuples
+        
+        self.actual_path_xy    = []       
         self.estimated_path_xy = []
 
 
@@ -206,14 +201,14 @@ class LocalizationNode:
             rospy.logerr("No walls extracted. Shutting down.")
             return
 
-        # -----  🔧 PATCH 2 : apply global rotate & shift -------------------------
+        
         self.wall_polygons = transform_polygons(
             raw_walls,
             angle_deg=ROT_ANGLE_DEG,
             dx=DX, dy=DY,
-            origin=(0, 0)          # change to e.g. map centre if needed
+            origin=(0, 0)          
         )
-        # ------------------------------------------------------------------------
+        
 
 
         all_x = [x for poly in self.wall_polygons for x in poly.exterior.xy[0]]
@@ -258,27 +253,26 @@ class LocalizationNode:
             self.is_localized = True
             self.stop_robot_and_report()
     def setup_plot(self):
-        """Initialise the Matplotlib figure & artists."""
         with self.plot_lock:
-            # --- global axes styling -------------------------------------------
+            
             self.ax.set_aspect('equal')
             self.ax.set_title("Particle Filter Localization")
             self.ax.set_xlabel("X (m)")
             self.ax.set_ylabel("Y (m)")
             self.ax.grid(True)
 
-            # --- draw static map walls -----------------------------------------
+            
             for poly in self.wall_polygons:
                 self.ax.fill(*poly.exterior.xy,
                             fc='lightgray', ec='black', alpha=0.5)
 
-            # --- live particle cloud (orange dots) -----------------------------
+            
             self.particles_plot, = self.ax.plot([], [], 'o',
                                                 color='orange', markersize=2,
                                                 alpha=0.5, label='Particles')
 
-            # --- live path traces ----------------------------------------------
-            # (buffers are filled in visualize(); we just create empty lines here)
+            
+            
             self.actual_path_line,    = self.ax.plot([], [], '-',
                                                     color='red',  lw=1,
                                                     label='Actual Path')
@@ -286,8 +280,8 @@ class LocalizationNode:
                                                     color='blue', lw=1,
                                                     label='Estimated Path')
 
-            # --- heading arrows (quivers) --------------------------------------
-            # start invisible by placing them at NaN and setting alpha=0
+            
+            
             self.actual_quiver = self.ax.quiver(np.nan, np.nan, np.nan, np.nan,
                                                 color='red',  alpha=0.0,
                                                 scale=1, scale_units='xy',
@@ -298,19 +292,19 @@ class LocalizationNode:
                                                 scale=1, scale_units='xy',
                                                 angles='xy', label='Estimated Heading')
 
-            # --- axes limits & legend ------------------------------------------
+            
             self.ax.set_xlim(self.map_bounds[0], self.map_bounds[1])
             self.ax.set_ylim(self.map_bounds[2], self.map_bounds[3])
             self.ax.legend(loc='upper right')
 
     def visualize(self):
         with self.plot_lock:
-            # — 1.  update scatter of particles  —
+            
             self.particles_plot.set_data(
                 [p.position.x for p in self.particle_filter.particles],
                 [p.position.y for p in self.particle_filter.particles])
 
-            # — 2.  extend and draw the actual & estimated paths  —
+            
             def append_and_update_path(path_buf, line, pose):
                 if pose:
                     path_buf.append((pose.position.x, pose.position.y))
@@ -320,43 +314,42 @@ class LocalizationNode:
             append_and_update_path(self.actual_path_xy,    self.actual_path_line,    self.actual_pose)
             append_and_update_path(self.estimated_path_xy, self.estimated_path_line, self.estimated_pose)
 
-            # — 3.  update quivers (heading arrows)  —
+            
             def update_quiver(quiver, pose):
                 if pose:
                     arrow_len = 0.25
                     yaw = 2*np.arctan2(pose.orientation.z, pose.orientation.w)
                     quiver.set_offsets([[pose.position.x, pose.position.y]])
                     quiver.set_UVC(arrow_len*np.cos(yaw), arrow_len*np.sin(yaw))
-                    quiver.set_alpha(0.8)           # (re‑enable if hidden)
+                    quiver.set_alpha(0.8)           
                 else:
                     quiver.set_offsets([[np.nan, np.nan]])
                     quiver.set_UVC(np.nan, np.nan)
-                    quiver.set_alpha(0.0)           # hide until first pose arrives
+                    quiver.set_alpha(0.0)           
 
             update_quiver(self.actual_quiver,    self.actual_pose)
             update_quiver(self.estimated_quiver, self.estimated_pose)
 
     def stop_robot_and_report(self):
-        """ ## CORRECTED: Fetches orientation from the correct message field. """
         rospy.loginfo("Convergence threshold reached. Robot localized!")
         self.cmd_pub.publish(Twist())
         
         if self.actual_pose and self.estimated_pose:
-            # Separate position and orientation for clarity
+            
             est_pos = self.estimated_pose.position
             actual_pos = self.actual_pose.position
             est_orient = self.estimated_pose.orientation
             actual_orient = self.actual_pose.orientation
 
-            # Calculate position error
+            
             pos_error = np.sqrt((actual_pos.x - est_pos.x)**2 + (actual_pos.y - est_pos.y)**2)
             
-            # CORRECTLY calculate yaw from the orientation part of the pose
+            
             actual_yaw = 2 * np.arctan2(actual_orient.z, actual_orient.w)
             est_yaw = 2 * np.arctan2(est_orient.z, est_orient.w)
             angle_error = abs((actual_yaw - est_yaw + np.pi) % (2 * np.pi) - np.pi)
 
-            # Print the final report
+            
             print("\n" + "="*45)
             print("========= LOCALIZATION COMPLETE =========")
             print("="*45)
@@ -396,7 +389,7 @@ if __name__ == '__main__':
     except Exception as e:
         rospy.logerr(f"An unhandled exception occurred: {e}")
     finally:
-        # Final visualization update before showing the blocking plot
+        
         if 'node' in locals() and node.is_localized:
             node.visualize()
         print("Displaying final plot. Close the plot window to exit.")

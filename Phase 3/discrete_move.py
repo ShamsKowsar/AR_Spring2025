@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 import rospy
 from geometry_msgs.msg import Twist
 from sensor_msgs.msg import Range
@@ -18,14 +18,14 @@ class StepwiseNavigatorOdom:
         self.min_safe_distance = 0.25
         self.current_yaw = 0.0
 
-        rospy.sleep(1)  # Let subscribers start
+        rospy.sleep(1)  
         self.run()
 
     def sensor_callback(self, msg):
         self.obstacle_detected = msg.range < self.min_safe_distance
 
     def odom_callback(self, msg):
-        # Convert quaternion to yaw
+        
         orientation_q = msg.pose.pose.orientation
         _, _, yaw = euler_from_quaternion([
             orientation_q.x,
@@ -47,7 +47,6 @@ class StepwiseNavigatorOdom:
         rospy.sleep(0.1)
 
     def normalize_angle(self, angle):
-        """ Normalize angle to [-pi, pi] """
         while angle > math.pi:
             angle -= 2 * math.pi
         while angle < -math.pi:
@@ -63,11 +62,11 @@ class StepwiseNavigatorOdom:
 
         rospy.loginfo("Turning 90 degrees...")
 
-        rate = rospy.Rate(20)  # 20 Hz
+        rate = rospy.Rate(20)  
         while not rospy.is_shutdown():
             error = self.normalize_angle(target_yaw - self.current_yaw)
 
-            if abs(error) < math.radians(2):  # within 2 degrees
+            if abs(error) < math.radians(2):  
                 break
 
             self.cmd_pub.publish(twist)
