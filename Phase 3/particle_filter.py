@@ -14,7 +14,7 @@ from scipy.stats import norm
 import threading
 # -----  🔧 PATCH 1 : global transform parameters --------------------------
 ROT_ANGLE_DEG = 0          # positive = CCW ; use 90 for a right‑angle turn
-DX, DY        = -0.03914 ,-0.521493  # metres to shift (+x right, +y up)
+DX, DY        = +0.03914 ,+0.521493  # metres to shift (+x right, +y up)
 
 from shapely.affinity import rotate as shp_rotate, translate as shp_translate
 
@@ -74,7 +74,7 @@ class ParticleFilter:
         self.sensor_noise_std = 0.01
 
         self.motion_noise_x_mean = 0.0004
-        self.motion_noise_theta_mean = 0.5
+        self.motion_noise_theta_mean = 0.0728
         self.sensor_noise_mean = -0.004
 
 
