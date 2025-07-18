@@ -55,15 +55,10 @@ class StepwiseNavigator:
         return angle
 
     def turn_left_90_degrees(self, angular_speed=0.3):
-        """
-        Turns the robot approximately 90 degrees to the left,
-        adjusting the angular speed by a DEFINED_CONSTANT,
-        using odometry feedback.
-        """
+
         initial_yaw = self.current_yaw
         DEFINED_CONSTANT = 0.493
 
-    # Target is 90 degrees (π/2 rad) ahead of current yaw
         target_yaw = self.normalize_angle(initial_yaw + math.radians(90))
 
         twist = Twist()
