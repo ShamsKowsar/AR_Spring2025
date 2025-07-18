@@ -35,7 +35,7 @@ class MazeNavigator:
                 self.turn_duration = rospy.Duration(angle_rad / self.turn_speed)
 
             else:
-                cmd.linear.x = 0.02  # Move forward
+                cmd.linear.x = 0.02  
 
         elif self.state == "turn":
             cmd.angular.z = self.turn_speed * self.turn_direction
